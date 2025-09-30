@@ -7,9 +7,11 @@ export default function InventaryScreen() {
   return (
     <SafeAreaView style={{ backgroundColor: "#F2F3F5", flex: 1 }}>
       <TitleBar title={"Inventario"} />
-      <View className="bg-blue-400 w-90 p-4">
-        <Text className="text-3xl will-change-variable">Inventario</Text>
+
+      <View className="bg-white w-full rounded-full">
+        <Text>Buscar producto</Text>
       </View>
+      
     </SafeAreaView>
   );
 }
