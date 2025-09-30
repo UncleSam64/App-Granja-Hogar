@@ -6,9 +6,9 @@ import TitleBar from '../../../components/TitleBar';
 export default function NewProductScreen() {
   return (
     <SafeAreaView style={{ backgroundColor: "#F2F3F5", flex: 1 }}>
-      <TitleBar title={"Nueva Entrada"} />
+      <TitleBar title={"Nuevo Producto"} />
       <View className="p-6">
-        <Text className="text-2xl">new producto</Text>
+        <Text className="text-2xl">Nuevo producto</Text>
       </View>
     </SafeAreaView>
   );
