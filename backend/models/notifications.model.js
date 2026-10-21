@@ -1,9 +1,9 @@
 import db from "./index.js";
 
 class NotificationsModel {
-    async createNotification(data) {
+    async createNotification(data, conn = db) {
         const { user_id, product_id, product_entry_id, product_out_id, content, type_id, permission_id } = data;
-        const [result] = await db.query(
+        const [result] = await conn.query(
             'INSERT INTO notifications (user_id, product_id, product_entry_id, product_out_id, content, type_id, permission_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW());',
             [user_id, product_id, product_entry_id, product_out_id, content, type_id, permission_id]
         );

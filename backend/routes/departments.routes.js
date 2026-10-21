@@ -1,5 +1,5 @@
 import express from "express"
-import { check, param } from "express-validator"
+import { body, param } from "express-validator"
 import { departmentsController } from "../controllers/departments.controller.js";
 import { validate } from "../middlewares/validator.middleware.js";
 import { authMiddlewareLogged } from "../middlewares/auth.middleware.js";
@@ -17,7 +17,14 @@ router.get('/:id',
   departmentsController.getById
 );
 
-router.post('/', authMiddlewareLogged, departmentsController.create);
+router.post('/',
+  [
+    authMiddlewareLogged,
+    body('name').isString().withMessage('name es obligatorio').bail().trim().notEmpty().withMessage('name es obligatorio').isLength({ max: 100 }).withMessage('name admite máximo 100 caracteres'),
+    validate
+  ],
+  departmentsController.create
+);
 
 
 export default router

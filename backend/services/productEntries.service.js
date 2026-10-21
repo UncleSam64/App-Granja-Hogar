@@ -8,6 +8,8 @@ import { productEntriesModel } from "../models/productEntries.model.js";
 import { productsModel } from "../models/products.model.js"; 
 import { notificationsModel } from "../models/notifications.model.js";
 import { getUnitNameById } from "../utils/units.util.js";
+import { withTransaction } from "../models/index.js";
+import { AppError } from "../utils/error.util.js";
 
 class ProductEntriesService {
  
@@ -19,28 +21,31 @@ class ProductEntriesService {
      */
 
     const entryVO = new ProductEntryVO(data);
-    
-    const product = await productsModel.getById(entryVO.product_id);
 
-    if (!product) throw new Error("Producto no encontrado");
-    if (!product.is_active) throw new Error("El producto no está activo");
+    // Insert, stock increment and notification succeed or fail together.
+    const { id, newStock } = await withTransaction(async (conn) => {
+      const product = await productsModel.getById(entryVO.product_id, conn);
 
+      if (!product) throw new AppError("Producto no encontrado", 404);
+      if (!product.is_active) throw new AppError("El producto no está activo", 400);
 
-    const id = await productEntriesModel.create(entryVO);
-    const entry = { id, ...entryVO };
-  
-    const newStock = parseFloat(product.actual_stock || 0) + parseFloat(entry.quantity);
+      const id = await productEntriesModel.create(entryVO, conn);
+      await productsModel.increaseStock(entryVO.product_id, entryVO.quantity, conn);
+      const { actual_stock } = await productsModel.getById(entryVO.product_id, conn);
 
-    await productsModel.update(entryVO.product_id, { actual_stock: newStock });
+      await notificationsModel.createNotification({
+        user_id: entryVO.user_id,
+        product_id: entryVO.product_id,
+        product_entry_id: id,
+        content: `Se ha registrado una nueva entrada de ${entryVO.quantity}${getUnitNameById(product.unit_id)} para el producto ${product.name}.`,
+        type_id: 4,
+        permission_id: 2
+      }, conn);
 
-    await notificationsModel.createNotification({
-      user_id: entryVO.user_id,
-      product_id: entryVO.product_id,
-      product_entry_id: id,
-      content: `Se ha registrado una nueva entrada de ${entryVO.quantity}${getUnitNameById(product.unit_id)} para el producto ${product.name}.`,
-      type_id: 4,
-      permission_id: 2
+      return { id, newStock: Number(actual_stock) };
     });
+
+    const entry = { id, ...entryVO };
 
     return {
       message: `Entrada creada por el usuario ${entryVO.user_id} y stock actualizado correctamente`,
@@ -64,7 +69,7 @@ class ProductEntriesService {
      * @returns {Object} Entrada de producto correspondiente al ID.
      */
     const entry = await productEntriesModel.getById(id);
-    if (!entry) throw new Error("Entrada no encontrada");
+    if (!entry) throw new AppError("Entrada no encontrada", 404);
     return entry;
   }
 }

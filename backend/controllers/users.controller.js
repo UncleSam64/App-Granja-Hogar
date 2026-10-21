@@ -30,6 +30,8 @@ class UserController {
     this.createUser = catchAsync(this.createUser.bind(this));
     this.updatePassword = catchAsync(this.updatePassword.bind(this));
     this.deleteUser = catchAsync(this.deleteUser.bind(this));
+    this.getUserById = catchAsync(this.getUserById.bind(this));
+    this.putUser = catchAsync(this.putUser.bind(this));
   }
 
   /**

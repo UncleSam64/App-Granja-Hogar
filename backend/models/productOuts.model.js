@@ -90,10 +90,10 @@ class ProductOutModel {
    * });
    * console.log(newOut.insertId);
    */
-  async create(data) {
+  async create(data, conn = db) {
     const { user_id, product_id, reason_id, department_id, unit_id, quantity, notes } = data;
 
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `INSERT INTO product_outs 
        (user_id, product_id, reason_id, department_id, unit_id, quantity, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -102,46 +102,7 @@ class ProductOutModel {
 
     return result;
   }
-  
-  /**
-   * Retrieves the current stock of a specific product.
-   *
-   * @async
-   * @memberof ProductOutModel
-   * @param {number} productId - The ID of the product.
-   * @returns {Promise<{ actual_stock: number }>} The product's current stock.
-   */
-  async getActualStock(productId) {
-    const [rows] = await db.query(
-      "SELECT actual_stock, name FROM products WHERE id = ?",
-      [productId]
-    );
-    return rows[0] || { actual_stock: 0 };
-  }
 
-  /**
-   * Updates a product's stock by subtracting a specific quantity.
-   *
-   * This method modifies the `actual_stock` field of the specified product.
-   * It ensures that each product outflow reduces the available stock accordingly.
-   *
-   * @async
-   * @memberof ProductOutModel
-   * @param {number} productId - The ID of the product to update.
-   * @param {number} quantity - The quantity to subtract from the current stock.
-   * @returns {Promise<Object>} The MySQL result object, including the `affectedRows` count.
-   *
-   * @example
-   * const result = await productOutModel.updateProductStock(3, 5);
-   * console.log(result.affectedRows); // 1
-   */
-  async updateProductStock(productId, quantity) {
-    const [result] = await db.query(
-      "UPDATE products SET actual_stock = actual_stock - ? WHERE id = ?",
-      [quantity, productId]
-    );
-    return result;
-  }
 }
 
 export const productOutModel = new ProductOutModel();

@@ -63,9 +63,12 @@ const usePostLogin = () => {
     async function verify() {
         setErrors({});
 
+        // First launch or after logout: nothing to verify, just show the login form.
+        const token = await SecureStore.getItemAsync('token');
+        if (!token) return;
+
         setLoading(true);
         try {
-            const token = await SecureStore.getItemAsync('token');
             const response = await postVerify(token);
 
             if (response) {

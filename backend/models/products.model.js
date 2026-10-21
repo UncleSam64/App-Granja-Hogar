@@ -62,9 +62,31 @@ class ProductsModel {
         return await db.query(sql, [category_id, unit_id, name, perishable, min_stock, max_stock]);
     }
 
-    async getById(id) {
-        const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
+    async getById(id, conn = db) {
+        const [rows] = await conn.query('SELECT * FROM products WHERE id = ?', [id]);
         return rows[0];
+    }
+
+    /**
+     * Adds `quantity` to a product's stock in one statement, so concurrent entries can't overwrite each other.
+     */
+    async increaseStock(id, quantity, conn = db) {
+        const [result] = await conn.query(
+            'UPDATE products SET actual_stock = actual_stock + ? WHERE id = ?',
+            [quantity, id]
+        );
+        return result;
+    }
+
+    /**
+     * Subtracts `quantity` only if enough stock remains; affectedRows is 0 when it doesn't.
+     */
+    async decreaseStock(id, quantity, conn = db) {
+        const [result] = await conn.query(
+            'UPDATE products SET actual_stock = actual_stock - ? WHERE id = ? AND actual_stock >= ?',
+            [quantity, id, quantity]
+        );
+        return result;
     }
 
     /**

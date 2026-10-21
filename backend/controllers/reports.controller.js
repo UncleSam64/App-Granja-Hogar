@@ -29,6 +29,8 @@ class ReportsController {
   async postReportXLSX(req, res) {
     const { initialDate, endDate, type } = req.body;
 
+    const workbook = await reportsService.postReportXLSXService({userId: req.user.id, initialDate, endDate, type});
+
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -38,8 +40,6 @@ class ReportsController {
       'attachment; filename=' + `${initialDate}to${endDate}.xlsx`
     );
 
-    const workbook = await reportsService.postReportXLSXService({userId: req.user.id, initialDate, endDate, type});
-
     await workbook.xlsx.write(res);
     return res.end();
   }
@@ -48,11 +48,13 @@ class ReportsController {
     const { initialDate, endDate, type } = req.body;
 
     const doc = new PDFDocument({ size: 'LETTER', margin: 50 });
-    doc.pipe(res);
+
+    // Build the document before streaming it, so a failed query can still be answered with a JSON error.
+    const docModified = await reportsService.postReportPDFService({doc, userId: req.user.id, initialDate, endDate, type});
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=${initialDate}to${endDate}.pdf`);
-
-    const docModified = await reportsService.postReportPDFService({doc, userId: req.user.id, initialDate, endDate, type});
+    docModified.pipe(res);
     docModified.end();
   }
 }

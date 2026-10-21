@@ -21,9 +21,9 @@ import { format } from "date-fns"
 export class ProductReportVO {
     constructor(dbProduct) {
         this.name = dbProduct.name;
-        this.perishable = Boolean(dbProduct.is_perishable);
-        this.category = dbProduct.category_id;
-        this.unit = dbProduct.unit_id;
+        this.perishable = Boolean(dbProduct.perishable);
+        this.category = dbProduct.category;
+        this.unit = dbProduct.unit;
         this.min_stock = dbProduct.min_stock;
         this.max_stock = dbProduct.max_stock;
         this.actual_stock = dbProduct.actual_stock;

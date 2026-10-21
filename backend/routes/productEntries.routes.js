@@ -23,7 +23,7 @@ router.post("/new", [
     authAuthorizePermissions("products-entries"),
     body("product_id").notEmpty().isInt().withMessage("product_id es obligatorio y debe ser un número entero"),
     body("unit_id").notEmpty().isInt().withMessage("unit_id es obligatorio y debe ser un número entero"),
-    body("is_donation").notEmpty().isBoolean().withMessage("is_donation es obligatorio y debe ser booleano"),
+    body("is_donation").notEmpty().isBoolean().withMessage("is_donation es obligatorio y debe ser booleano").toBoolean(true),
     body("quantity").notEmpty().isFloat({ gt: 0 }).withMessage("quantity es obligatorio y debe ser un número positivo"),
     body("cost").custom((value, { req }) => {
         if (!req.body.is_donation && (value === null || value === undefined || isNaN(parseFloat(value)))) {
@@ -31,7 +31,7 @@ router.post("/new", [
         }
         return true;
     }),
-    body("exp_date").optional({ checkFalsy: true }).isISO8601().toDate().withMessage("exp_date debe ser una fecha válida si se proporciona"),
+    body("exp_date").optional({ checkFalsy: true }).isISO8601().withMessage("exp_date debe ser una fecha válida si se proporciona"),
     validate
 ],
     productEntriesController.createEntry)

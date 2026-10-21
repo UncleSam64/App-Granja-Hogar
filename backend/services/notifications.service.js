@@ -1,7 +1,7 @@
 import NotificationVO from '../valueObjects/notifications/notification.vo.js';
 import { notificationsModel } from '../models/notifications.model.js';
 import { AppError } from '../utils/error.util.js';
-import { convertPermissionsArrayByNameToId } from '../utils/permissions.util.js';
+import { convertPermissionsArrayByNameToId, permissionObjectByName } from '../utils/permissions.util.js';
 
 class NotificationService {
     async addNotification({ user_id, product_id, product_entry_id, product_out_id, content, type_id, permission_id }) {
@@ -17,7 +17,9 @@ class NotificationService {
         );
     }
     async getNotifications(user) {
-        const permissions = convertPermissionsArrayByNameToId(user.permissions);
+        // Admins implicitly hold every permission (see auth.middleware), so they see every notification.
+        const names = user.permissions.includes('admin') ? Object.keys(permissionObjectByName()) : user.permissions;
+        const permissions = convertPermissionsArrayByNameToId(names);
         const rows = await notificationsModel.getAllNotifications(permissions);
         return rows.map(n => new NotificationVO(
             {
@@ -33,10 +35,10 @@ class NotificationService {
         const row = await notificationsModel.getNotificationById(id);
         if (!row) throw new AppError('Notificación no encontrada.', 404);
 
-        return new NotificationVO(row.id, row.product_id, row.product_entry_id, row.content, row.notification_type, row.created_at);
+        return new NotificationVO(row);
     }
     async removeNotification(id) {
-        const affectedRows = await deleteNotificationByIdModel(id);
+        const affectedRows = await notificationsModel.deleteNotificationById(id);
         if (!affectedRows) throw new AppError('Notificación no encontrada o ya eliminada.', 404);
 
         return { message: 'Notificación eliminada exitosamente.' };

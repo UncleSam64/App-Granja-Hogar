@@ -19,7 +19,15 @@ class ReportsModel {
    */
 
     async postReportInventory() {
-        return await db.query('SELECT * FROM products');
+        const sql = `
+        SELECT p.*, c.name AS category, u.name AS unit
+        FROM products AS p
+        JOIN categories AS c ON p.category_id = c.id
+        JOIN units AS u ON p.unit_id = u.id
+        WHERE p.is_active = TRUE
+        ORDER BY p.name;
+        `;
+        return await db.query(sql);
     }
 
     /**
@@ -71,7 +79,7 @@ class ReportsModel {
         JOIN reasons AS r ON ou.reason_id = r.id
         JOIN departments AS d ON ou.department_id = d.id
         JOIN units AS u ON p.unit_id = u.id
-        WHERE ou.created_at BETWEEN ? AND ?;
+        WHERE ou.created_at >= ? AND ou.created_at < DATE_ADD(?, INTERVAL 1 DAY);
         `;
         return await db.query(sql, [initialDate, endDate]);
     }
@@ -92,7 +100,7 @@ class ReportsModel {
         JOIN products AS p ON en.product_id = p.id
         JOIN users AS us ON en.user_id = us.id
 
-        WHERE en.created_at BETWEEN ? AND ?;
+        WHERE en.created_at >= ? AND en.created_at < DATE_ADD(?, INTERVAL 1 DAY);
         `;
         return await db.query(sql, [initialDate, endDate]);
     }

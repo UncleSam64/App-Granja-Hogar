@@ -50,9 +50,9 @@ const UsersServiceProxy = () => {
             }
         });
 
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
-
         const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || 'Error desconocido');
 
         return data;
     }
@@ -71,9 +71,9 @@ const UsersServiceProxy = () => {
             }
         });
 
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
-
         const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || 'Error desconocido');
         return data.users;
     }
 
@@ -86,10 +86,10 @@ const UsersServiceProxy = () => {
                 "Authorization": "Bearer " + token
             }
         });
-        
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
 
         const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || 'Error desconocido');
         return data.user;
     }
 
@@ -106,9 +106,9 @@ const UsersServiceProxy = () => {
             },
         });
 
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
-
         const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || 'Error desconocido');
         return data.ok;
     }
 
@@ -125,9 +125,9 @@ const UsersServiceProxy = () => {
             body: JSON.stringify(EditUserVO)
         });
 
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
-
         const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || 'Error desconocido');
         return data;
     }
 /**
@@ -147,9 +147,9 @@ const UsersServiceProxy = () => {
             body: JSON.stringify(PasswordUpdateVO)
         });
 
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
-
         const data = await response.json();
+
+        if (!response.ok) throw new Error(data.message || 'Error desconocido');
         return data;
     }
 

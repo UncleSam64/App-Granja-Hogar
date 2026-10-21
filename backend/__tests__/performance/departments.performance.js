@@ -11,7 +11,9 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get('https://localhost:8080/departments');
+  const res = http.get('http://localhost:8080/v1/departments', {
+    headers: { 'Authorization': 'Bearer TOKEN_DE_PRUEBA' },
+  });
 
   check(res, {
     'status 200': (r) => r.status === 200,

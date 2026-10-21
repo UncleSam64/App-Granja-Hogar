@@ -42,16 +42,17 @@ const ReportsProxy = () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                "Authorization": "Barier " + token
+                "Authorization": "Bearer " + token
             },
             body: JSON.stringify(reportVo),
         });
 
-        const data = await response.blob();
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Error desconocido');
+        }
 
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
-
-        return data
+        return await response.blob();
     }
 
     /**
@@ -82,11 +83,12 @@ const ReportsProxy = () => {
             body: JSON.stringify(reportVo),
         });
 
-        const data = await response.blob();
-        
-        if (!response.ok) throw new Error(data.message || 'Error desconocido');
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Error desconocido');
+        }
 
-        return data
+        return await response.blob();
     }
 
     return { getPdfReport, getXLSXReport };

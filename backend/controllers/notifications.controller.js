@@ -6,6 +6,7 @@ export class NotificationController {
         this.createNotification = catchAsync(this.createNotification.bind(this));
         this.getNotifications = catchAsync(this.getNotifications.bind(this));
         this.getNotificationById = catchAsync(this.getNotificationById.bind(this));
+        this.deleteNotification = catchAsync(this.deleteNotification.bind(this));
     }
 
     async createNotification(req, res) {

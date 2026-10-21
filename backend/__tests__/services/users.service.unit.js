@@ -1,5 +1,5 @@
-import 'dotenv/config';
 import { jest } from '@jest/globals';
+import { dbModuleMock } from '../helpers.js';
 
 /**
  * Users Service Test
@@ -22,15 +22,18 @@ const addPermissionsToUserModelMock = jest.fn();
 const addNotificationServiceMock = jest.fn();
 const deleteModelMock = jest.fn();
 const getUserByIdMock = jest.fn();
+const userPermissionsMock = jest.fn();
 const updatePasswordMock = jest.fn();
 const bcryptHashMock = jest.fn();
 const bcryptGenSaltMock = jest.fn();
 
+jest.unstable_mockModule('../../models/index.js', () => dbModuleMock(jest));
 jest.unstable_mockModule('../../models/users.model.js', () => ({
   usersModel: {
     loginModel: loginModelMock,
-  getUserById: getUserByIdMock,
-  updatePassword: updatePasswordMock,
+    userPermissions: userPermissionsMock,
+    getUserById: getUserByIdMock,
+    updatePassword: updatePasswordMock,
     create: createModelMock,
     addPermissionsToUser: addPermissionsToUserModelMock,
     delete: deleteModelMock,
@@ -55,15 +58,7 @@ jest.unstable_mockModule('../../services/notifications.service.js', () => ({
   }
 }));
 
-jest.unstable_mockModule('../../valueObjects/users/password.vo.js', () => ({
-  PasswordVO: class {
-    constructor(value) {
-      this.value = value;
-    }
-  }
-}));
-
-import { usersService } from '../../services/users.service.js';
+const { usersService } = await import('../../services/users.service.js');
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -77,6 +72,7 @@ describe('User Service Unit Tests', () => {
       const req = { body: { username: 'test', password: 'password123' } };
       
       loginModelMock.mockResolvedValue([[mockUser]]);
+      userPermissionsMock.mockResolvedValue([[{ permission: 'products-outs' }]]);
       bcryptCompareMock.mockResolvedValue(true);
       jwtSignMock.mockReturnValue('fake.jwt.token');
 
@@ -87,6 +83,7 @@ describe('User Service Unit Tests', () => {
       expect(token).toBe('fake.jwt.token');
       expect(loginModelMock).toHaveBeenCalledWith('test');
       expect(bcryptCompareMock).toHaveBeenCalledWith('password123', 'hashedpassword');
+      expect(jwtSignMock.mock.calls[0][0]).toMatchObject({ id: 1, username: 'test', permissions: ['products-outs'] });
     });
 
     test('Given non-existent user, When login, Then should throw error', async () => {
@@ -95,7 +92,7 @@ describe('User Service Unit Tests', () => {
       loginModelMock.mockResolvedValue([[]]);
 
       // WHEN/THEN
-      await expect(usersService.login(req.body)).rejects.toThrow('Datos Incorrectos');
+      await expect(usersService.login(req)).rejects.toMatchObject({ statusCode: 401, message: 'Datos Incorrectos' });
     });
 
     test('Given incorrect password, When login, Then should throw error', async () => {
@@ -106,26 +103,26 @@ describe('User Service Unit Tests', () => {
       bcryptCompareMock.mockResolvedValue(false);
 
       // WHEN/THEN
-      await expect(usersService.login(req.body)).rejects.toThrow('Contraseña incorrecta');
+      await expect(usersService.login(req)).rejects.toMatchObject({ statusCode: 401, message: 'Contraseña incorrecta' });
     });
   });
 
   describe('verifyService', () => {
-    test('Given valid token, When verify, Then should return user object', () => {
+    test('Given valid token, When verify, Then should return user object', async () => {
       // GIVEN
       const token = 'valid.fake.token';
       const mockUser = { id: 1, username: 'testuser' };
       jwtVerifyMock.mockReturnValue(mockUser);
 
       // WHEN
-      const result = usersService.verify({ token });
+      const result = await usersService.verify({ token });
 
       // THEN
       expect(result).toEqual(mockUser);
       expect(jwtVerifyMock).toHaveBeenCalledWith(token, expect.any(String));
     });
 
-    test('Given invalid token, When verify, Then should return false', () => {
+    test('Given invalid token, When verify, Then should return false', async () => {
       // GIVEN
       const token = 'invalid.fake.token';
       jwtVerifyMock.mockImplementation(() => {
@@ -133,20 +130,20 @@ describe('User Service Unit Tests', () => {
       });
 
       // WHEN
-      const result = usersService.verify({ token });
+      const result = await usersService.verify({ token });
 
       // THEN
       expect(result).toBe(false);
       expect(jwtVerifyMock).toHaveBeenCalled();
     });
 
-    test('When service is called, Then it should call jwt.verify with the token', () => {
+    test('When service is called, Then it should call jwt.verify with the token', async () => {
       // GIVEN
       const token = 'any.fake.token';
       jwtVerifyMock.mockReturnValue({});
 
         // WHEN
-        usersService.verify({ token });
+      await usersService.verify({ token });
 
       // THEN
       expect(jwtVerifyMock).toHaveBeenCalledWith(
@@ -257,7 +254,10 @@ describe('User Service Unit Tests', () => {
       const result = await usersService.createUser(userData);
 
       // THEN
-      expect(result).toEqual(mockResult);
+      expect(result).toEqual({
+        id: 123, name: 'Camila', lastName: 'Beltran', username: 'camilabeltran',
+        permissions: ['products-entries', 'products-outs'],
+      });
       expect(bcryptGenSaltMock).toHaveBeenCalledWith(10);
       expect(bcryptHashMock).toHaveBeenCalledWith('password123', 'salt123');
       expect(createModelMock).toHaveBeenCalledWith({
@@ -265,8 +265,8 @@ describe('User Service Unit Tests', () => {
         lastName: 'Beltran',
         username: 'camilabeltran',
         passwordHash: 'hashed_password'
-      });
-      expect(addPermissionsToUserModelMock).toHaveBeenCalledWith(123, ['products-entries', 'products-outs']);
+      }, 'tx-conn');
+      expect(addPermissionsToUserModelMock).toHaveBeenCalledWith(123, ['products-entries', 'products-outs'], 'tx-conn');
       expect(addNotificationServiceMock).toHaveBeenCalledWith({
         user_id: 1,
         content: 'Se ha creado un nuevo usuario: camilabeltran',
@@ -287,7 +287,7 @@ describe('User Service Unit Tests', () => {
       };
 
       // WHEN/THEN
-      await expect(usersService.createUser(userData)).rejects.toThrow();
+      await expect(usersService.createUser(userData)).rejects.toMatchObject({ statusCode: 400 });
       expect(createModelMock).not.toHaveBeenCalled();
     });
 
@@ -329,6 +329,7 @@ describe('User Service Unit Tests', () => {
 
       // WHEN/THEN
       await expect(usersService.createUser(userData)).rejects.toThrow('Permission error');
+      expect(addNotificationServiceMock).not.toHaveBeenCalled();
     });
   });
 

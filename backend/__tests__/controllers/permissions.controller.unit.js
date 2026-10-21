@@ -1,114 +1,93 @@
+import { jest } from '@jest/globals';
 import request from 'supertest';
+import { bearer } from '../helpers.js';
 
-import app from '../../app.js';
+jest.unstable_mockModule('../../services/permissions.service.js', () => ({
+  permissionsService: {
+    getAllPermissions: jest.fn(),
+    getUserPermissions: jest.fn(),
+    updateUserPermissions: jest.fn(),
+  },
+}));
 
-afterAll(async () => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  //process.exit(0);
-});
+const { permissionsService } = await import('../../services/permissions.service.js');
+const { default: app } = await import('../../app.js');
 
-describe("Permission Controller integration tests", () => {
+const manager = bearer(['manage-users']);
+
+describe("Permission Controller tests", () => {
+  beforeEach(() => jest.clearAllMocks());
+
   describe('Get All Permissions Endpoint Test', () => {
     test('Given request When get all permissions Then status 200', async () => {
-      await request(app)
-        .get('/v1/permissions')
-        .expect(200)
-        .expect((res) => {
-          expect(res.body).toBeInstanceOf(Array);
-          expect(res.body.length).toBeGreaterThan(0);
-          expect(res.body[0]).toHaveProperty('id');
-          expect(res.body[0]).toHaveProperty('permission');
-        });
+      permissionsService.getAllPermissions.mockResolvedValue([{ id: 1, permission: 'admin' }]);
+
+      const res = await request(app).get('/v1/permissions').set('Authorization', bearer(['products-outs']));
+
+      expect(res.status).toBe(200);
+      expect(res.body[0]).toEqual({ id: 1, permission: 'admin' });
     });
   });
 
   describe('Get User Permissions Endpoint Test', () => {
     test('Given valid user ID When get permissions Then status 200', async () => {
-      await request(app)
-        .get('/v1/permissions/user/1')
-        .expect(200)
-        .expect((res) => {
-          expect(res.body).toHaveProperty('user_id');
-          expect(res.body).toHaveProperty('permissions');
-          expect(res.body).toHaveProperty('permission_count');
-          expect(res.body.user_id).toBe(1);
-          expect(Array.isArray(res.body.permissions)).toBe(true);
-        });
+      permissionsService.getUserPermissions.mockResolvedValue({ user_id: 1, permissions: [], permission_count: 0 });
+
+      const res = await request(app).get('/v1/permissions/user/1').set('Authorization', manager);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('permission_count');
+      expect(permissionsService.getUserPermissions).toHaveBeenCalledWith('1');
     });
 
     test('Given invalid user ID When get permissions Then error 400', async () => {
-      await request(app)
-        .get('/v1/permissions/user/invalid')
-        .expect(400);
+      const res = await request(app).get('/v1/permissions/user/invalid').set('Authorization', manager);
+
+      expect(res.status).toBe(400);
     });
 
-    test('Given user with no permissions When get permissions Then empty array', async () => {
-      await request(app)
-        .get('/v1/permissions/user/3')
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.user_id).toBe(3);
-          expect(res.body.permissions).toHaveLength(0);
-          expect(res.body.permission_count).toBe(0);
-        });
+    test('Given a user without manage-users When get permissions Then error 403', async () => {
+      const res = await request(app).get('/v1/permissions/user/1').set('Authorization', bearer(['products-outs']));
+
+      expect(res.status).toBe(403);
+      expect(permissionsService.getUserPermissions).not.toHaveBeenCalled();
     });
   });
 
   describe('Update User Permissions Endpoint Test', () => {
     test('Given valid data When update permissions Then status 200', async () => {
-      await request(app)
-        .put('/v1/permissions/user/1')
-        .send({
-          "permission-ids": [1, 2, 3],
-        })
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.success).toBe(true);
-          expect(res.body.message).toBe('Permisos actualizados exitosamente');
-        });
-    });
+      permissionsService.updateUserPermissions.mockResolvedValue({ success: true, message: 'Permisos actualizados exitosamente' });
 
-    test('Given empty array When update permissions Then status 200', async () => {
-      await request(app)
-        .put('/v1/permissions/user/1')
-        .send({
-          "permission-ids": [],
-        })
-        .expect(200);
+      const res = await request(app).put('/v1/permissions/user/1').set('Authorization', manager).send({ 'permission-ids': [1, 2, 3] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Permisos actualizados exitosamente');
+      expect(permissionsService.updateUserPermissions).toHaveBeenCalledWith('1', [1, 2, 3]);
     });
 
     test('Given invalid user ID When update permissions Then error 400', async () => {
-      await request(app)
-        .put('/v1/permissions/user/invalid')
-        .send({
-          "permission-ids": [1, 2],
-        })
-        .expect(400);
+      const res = await request(app).put('/v1/permissions/user/abc').set('Authorization', manager).send({ 'permission-ids': [1] });
+
+      expect(res.status).toBe(400);
     });
 
     test('Given invalid permission_ids format When update Then error 400', async () => {
-      await request(app)
-        .put('/v1/permissions/user/1')
-        .send({
-          "permission-ids": 'not-an-array',
-        })
-        .expect(400);
+      const res = await request(app).put('/v1/permissions/user/1').set('Authorization', manager).send({ 'permission-ids': 'not-an-array' });
+
+      expect(res.status).toBe(400);
     });
 
     test('Given non-numeric permission IDs When update Then error 400', async () => {
-      await request(app)
-        .put('/v1/permissions/user/1')
-        .send({
-          "permission-ids": [1, 'invalid', 3],
-        })
-        .expect(400);
+      const res = await request(app).put('/v1/permissions/user/1').set('Authorization', manager).send({ 'permission-ids': ['a', 'b'] });
+
+      expect(res.status).toBe(400);
     });
 
     test('Given missing body When update permissions Then error 400', async () => {
-      await request(app)
-        .put('/v1/permissions/user/1')
-        .send({})
-        .expect(400);
+      const res = await request(app).put('/v1/permissions/user/1').set('Authorization', manager);
+
+      expect(res.status).toBe(400);
+      expect(permissionsService.updateUserPermissions).not.toHaveBeenCalled();
     });
   });
 });

@@ -8,7 +8,7 @@
  */
 
 import express from "express"
-import { check, param } from "express-validator"
+import { body, param } from "express-validator"
 import { productOutController } from "../controllers/productOuts.controller.js";
 import { validate } from "../middlewares/validator.middleware.js";
 import { authAuthorizePermissions, authMiddlewareLogged } from "../middlewares/auth.middleware.js";
@@ -42,7 +42,16 @@ router.get('/:id',
  * @middleware {function} authAuthorizePermissions - Requires "products-outs" permission.
  */
 router.post('/',
-  authAuthorizePermissions("products-outs"),
+  [
+    authAuthorizePermissions("products-outs"),
+    body('product_id').isInt({ min: 1 }).withMessage('product_id es obligatorio y debe ser un número entero'),
+    body('reason_id').isInt({ min: 1 }).withMessage('reason_id es obligatorio y debe ser un número entero'),
+    body('department_id').isInt({ min: 1 }).withMessage('department_id es obligatorio y debe ser un número entero'),
+    body('unit_id').isInt({ min: 1 }).withMessage('unit_id es obligatorio y debe ser un número entero'),
+    body('quantity').isFloat({ gt: 0 }).withMessage('quantity es obligatorio y debe ser un número positivo').toFloat(),
+    body('notes').optional({ values: 'null' }).isString().isLength({ max: 255 }).withMessage('notes debe ser texto de máximo 255 caracteres'),
+    validate
+  ],
   productOutController.create);
 
 

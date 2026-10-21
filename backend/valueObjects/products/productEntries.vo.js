@@ -25,7 +25,8 @@ export class ProductEntryVO {
     this.is_donation = Boolean(entry.is_donation);
     this.quantity = parseFloat(entry.quantity);
     this.cost = this.is_donation ? null : parseFloat(entry.cost);
-    this.exp_date = entry.exp_date ? new Date(entry.exp_date) : null;
+    // Keep it as a calendar date (YYYY-MM-DD): converting to Date shifts it a day back west of UTC.
+    this.exp_date = entry.exp_date ? String(entry.exp_date).slice(0, 10) : null;
 
     Object.freeze(this);
   }

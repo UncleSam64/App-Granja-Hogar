@@ -48,8 +48,8 @@ class PermissionsModel {
      * @param {string|number} user_id - The ID of the user whose permissions to remove.
      * @returns {Promise<Array>} A promise that resolves to the database query result.
      */
-    async deleteUserPermissions(user_id) {
-        return await db.query('DELETE FROM user_permissions WHERE user_id = ?', [user_id]);
+    async deleteUserPermissions(user_id, conn = db) {
+        return await conn.query('DELETE FROM user_permissions WHERE user_id = ?', [user_id]);
     }
     
     /**
@@ -60,12 +60,12 @@ class PermissionsModel {
      * @param {Array<number>} permission_ids - Array of permission IDs to assign to the user.
      * @returns {Promise<Array>} A promise that resolves to the database query result.
      */
-    async insertUserPermissions(user_id, permission_ids) {
+    async insertUserPermissions(user_id, permission_ids, conn = db) {
         if (permission_ids.length === 0) {
             return [{ affectedRows: 0 }];
         }
         const values = permission_ids.map(id => [user_id, id]);
-        return await db.query('INSERT INTO user_permissions (user_id, permission_id) VALUES ?', [values]);
+        return await conn.query('INSERT INTO user_permissions (user_id, permission_id) VALUES ?', [values]);
     }
 
 }

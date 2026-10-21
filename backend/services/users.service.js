@@ -17,6 +17,7 @@
 
 import bcrypt from "bcryptjs";
 import { usersModel } from "../models/users.model.js";
+import { withTransaction } from "../models/index.js";
 import { PasswordVO } from "../valueObjects/users/password.vo.js";
 import { PasswordUpdateVO } from "../valueObjects/users/passwordUpdate.vo.js";
 import { AppError } from "../utils/error.util.js";
@@ -31,10 +32,10 @@ export class UsersService {
    */
   async login({ username, password }) {
     const [rowsUsername] = await usersModel.loginModel(username);
-    if (rowsUsername.length === 0) throw new AppError("Datos Incorrectos");
+    if (rowsUsername.length === 0) throw new AppError("Datos Incorrectos", 401);
 
     const validationPassword = await bcrypt.compare(password, rowsUsername[0].password_hash)
-    if (!validationPassword) throw new AppError("Contraseña incorrecta");
+    if (!validationPassword) throw new AppError("Contraseña incorrecta", 401);
 
     const [userPermissions] = await usersModel.userPermissions(rowsUsername[0].id);
     const permissions = userPermissions.map(r => r.permission);
@@ -72,8 +73,8 @@ export class UsersService {
    */
   async getUserById({ id }) {
     const user = await usersModel.getUserById(id);
-    const permissions = await usersModel.userPermissions(id);
     if (!user) throw new AppError("Usuario no encontrado", 404);
+    const permissions = await usersModel.userPermissions(id);
     return new UserVO({
       ...user, permissions: permissions[0].map(p => p.permission)
     });
@@ -87,14 +88,16 @@ export class UsersService {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(passVO.value, salt);
 
-    const created = await usersModel.create({
-      name,
-      lastName,
-      username,
-      passwordHash
+    const created = await withTransaction(async (conn) => {
+      const created = await usersModel.create({
+        name,
+        lastName,
+        username,
+        passwordHash
+      }, conn);
+      await usersModel.addPermissionsToUser(created.insertId, permissions, conn);
+      return created;
     });
-
-    await usersModel.addPermissionsToUser(created.insertId, permissions);
 
     await notificationService.addNotification({
       user_id: user_id,
@@ -103,7 +106,7 @@ export class UsersService {
       permission_id: 6
     });
 
-    return created;
+    return new UserVO({ id: created.insertId, name, last_name: lastName, username, permissions });
   };
 
   /**
@@ -146,13 +149,14 @@ export class UsersService {
    * @author Yahir Alfredo Tapia Sifuentes
    */
   async editUser({ id, name, lastName, permissions, user_id }) {
-    console.log("Editing user:", id, name, lastName, permissions);
     const user = await usersModel.getUserById(id);
     if (!user) throw new AppError("Usuario no encontrado", 404);
 
-    const updatedUser = await usersModel.updateUser({ id, name, last_name: lastName });
-
-    await usersModel.updateUserPermissions(id, permissions);
+    // Permissions are replaced (delete + insert), so do it atomically with the name change.
+    await withTransaction(async (conn) => {
+      await usersModel.updateUser({ id, name, last_name: lastName }, conn);
+      await usersModel.updateUserPermissions(id, permissions, conn);
+    });
 
     await notificationService.addNotification({
       user_id: user_id,
@@ -163,7 +167,9 @@ export class UsersService {
 
 
     return new UserVO({
-      ...updatedUser,
+      ...user,
+      name,
+      last_name: lastName,
       permissions
     });
   }
@@ -173,7 +179,6 @@ export class UsersService {
    */
   async deleteUser({ id, user_id }) {
     const [result] = await usersModel.delete(id);
-    console.log(result);
 
     if (!result || !result.affectedRows) throw new AppError("Usuario no encontrado o no se pudo eliminar", 404);
 

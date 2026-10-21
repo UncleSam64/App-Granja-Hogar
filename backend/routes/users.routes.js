@@ -31,7 +31,7 @@ const router = Router();
  * @author Jared Alejandro Marquez Muñoz Grado
  */
 router.post("/login", [
-  body("username").isLength().withMessage("El username no es válido").notEmpty().withMessage("El username es requerido").trim().escape().toLowerCase(),
+  body("username").isLength().withMessage("El username no es válido").notEmpty().withMessage("El username es requerido").trim().toLowerCase(),
   body("password").isLength({ min: 8 }).withMessage("La contraseña debe tener al menos 8 caracteres").notEmpty().withMessage("La contraseña es requerida"),
   validate
 ],
@@ -63,9 +63,9 @@ router.post(
   "/new",
   [
     authAuthorizePermissions("manage-users"),
-    body("name").trim().isLength({ min: 2 }).withMessage("name mínimo 2 caracteres").trim().escape().toLowerCase(),
-    body("lastName").trim().isLength({ min: 2 }).withMessage("lastName mínimo 2 caracteres").trim().escape().toLowerCase(),
-    body("username").trim().isLength({ min: 3 }).withMessage("username mínimo 3 caracteres").trim().escape().toLowerCase(),
+    body("name").trim().isLength({ min: 2 }).withMessage("name mínimo 2 caracteres").trim().toLowerCase(),
+    body("lastName").trim().isLength({ min: 2 }).withMessage("lastName mínimo 2 caracteres").trim().toLowerCase(),
+    body("username").trim().isLength({ min: 3 }).withMessage("username mínimo 3 caracteres").trim().toLowerCase(),
     body("password").isString().isLength({ min: 8 }).withMessage("password mínimo 8 caracteres"),
     body("permissions").isArray().withMessage("permissions debe ser un array").custom((value) => {
       const validPermissions = ["products-entries", "products-outs", "generate-reports", "edit-catalog", "manage-users"];
@@ -84,8 +84,8 @@ router.post(
 router.put("/edit/:id", [
   authAuthorizePermissions("manage-users"),
   param("id").isInt().withMessage("ID debe ser un número entero"),
-  body("name").trim().isLength({ min: 2 }).withMessage("name mínimo 2 caracteres").trim().escape().toLowerCase(),
-  body("lastName").trim().isLength({ min: 2 }).withMessage("last_name mínimo 2 caracteres").trim().escape().toLowerCase(),
+  body("name").trim().isLength({ min: 2 }).withMessage("name mínimo 2 caracteres").trim().toLowerCase(),
+  body("lastName").trim().isLength({ min: 2 }).withMessage("last_name mínimo 2 caracteres").trim().toLowerCase(),
   body("permissions").isArray().withMessage("permissions debe ser un array").custom((value) => {
     const validPermissions = ["products-entries", "products-outs", "generate-reports", "edit-catalog", "manage-users"];
     if (!value.every(permission => validPermissions.includes(permission)))

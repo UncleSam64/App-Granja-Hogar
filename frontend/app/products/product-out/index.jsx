@@ -90,8 +90,8 @@ export default function OutScreen() {
         return;
       }
 
+      // The server records the logged-in user from the token.
       const payload = {
-        user_id: user.id,
         product_id: selectedProduct,
         reason_id: reasonId,
         department_id: departmentId,

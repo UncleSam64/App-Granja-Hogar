@@ -1,5 +1,5 @@
 import express from "express"
-import { check, param } from "express-validator"
+import { body, param } from "express-validator"
 import { reasonsController } from "../controllers/reasons.controller.js";
 import { validate } from "../middlewares/validator.middleware.js";
 import { authAuthorizePermissions } from "../middlewares/auth.middleware.js";
@@ -17,6 +17,13 @@ router.get('/:id',
   reasonsController.getById
 );
 
-router.post('/', authAuthorizePermissions("products-outs"), reasonsController.create);
+router.post('/',
+  [
+    authAuthorizePermissions("products-outs"),
+    body('name').isString().withMessage('name es obligatorio').bail().trim().notEmpty().withMessage('name es obligatorio').isLength({ max: 100 }).withMessage('name admite máximo 100 caracteres'),
+    validate
+  ],
+  reasonsController.create
+);
 
 export default router

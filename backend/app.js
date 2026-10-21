@@ -21,12 +21,12 @@ dotenv.config();
 
 const app = express()
 
-app.use(morgan("dev"))
+if (process.env.NODE_ENV !== "test") app.use(morgan("dev"))
+// The mobile app authenticates with a Bearer token, so no cookies are needed.
+// CORS only matters for the web build: set CORS_ORIGIN to a comma-separated list to restrict it.
 app.use(
   cors({
-    origin: ["*"],
-    credentials: true,
-    exposedHeaders: ["set-cookie"],
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : true,
   })
 );
 

@@ -1,130 +1,120 @@
-import request from 'supertest';
 import { jest } from '@jest/globals';
-
-const getAllNotificationsMock = jest.fn();
-const getNotificationByIdMock = jest.fn();
-const createNotificationMock = jest.fn();
-const deleteNotificationMock = jest.fn();
+import request from 'supertest';
+import { bearer } from '../helpers.js';
 
 jest.unstable_mockModule('../../services/notifications.service.js', () => ({
-  getAllNotificationsService: getAllNotificationsMock,
-  getNotificationByIdService: getNotificationByIdMock,
-  createNotificationService: createNotificationMock,
-  deleteNotificationService: deleteNotificationMock,
+  notificationService: {
+    addNotification: jest.fn(),
+    getNotifications: jest.fn(),
+    getNotificationById: jest.fn(),
+    removeNotification: jest.fn(),
+  },
 }));
 
-const { default: app, connection } = await import('../../app.js');
+const { notificationService } = await import('../../services/notifications.service.js');
+const { AppError } = await import('../../utils/error.util.js');
+const { default: app } = await import('../../app.js');
+
+const auth = bearer(['products-entries']);
 
 describe("Notifications Controller Unit Tests", () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(() => jest.clearAllMocks());
 
-  afterAll(async () => {
-    if (connection) await connection.end();
-  });
-
-  // GET 
   describe('GET /v1/notifications', () => {
     test('Given notifications exist, When fetching all, Then return 200 and list', async () => {
-      // GIVEN
-      getAllNotificationsMock.mockResolvedValue([
-        { id: 1, title: 'Stock bajo', message: 'Producto casi agotado' },
-        { id: 2, title: 'Vencimiento', message: 'Producto próximo a vencer' },
-      ]);
+      notificationService.getNotifications.mockResolvedValue([{ id: 1, content: 'Entrada' }]);
 
-      // WHEN/THEN
-      await request(app)
-        .get('/v1/notifications')
-        .expect(200)
-        .expect(res => {
-          expect(Array.isArray(res.body)).toBe(true);
-          expect(res.body[0]).toHaveProperty('id');
-          expect(res.body[0]).toHaveProperty('title');
-        });
+      const res = await request(app).get('/v1/notifications').set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([{ id: 1, content: 'Entrada' }]);
+      expect(notificationService.getNotifications).toHaveBeenCalledWith(
+        expect.objectContaining({ permissions: ['products-entries'] })
+      );
     });
 
-    test('Given DB error, When fetching all, Then return 500', async () => {
-      // GIVEN
-      getAllNotificationsMock.mockRejectedValue(new Error('DB Error'));
+    test('Given DB error, When fetching all, Then return 500 without leaking the error', async () => {
+      notificationService.getNotifications.mockRejectedValue(new Error("Access denied for user 'root'"));
+      jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      // WHEN/THEN
-      await request(app).get('/v1/notifications').expect(500);
+      const res = await request(app).get('/v1/notifications').set('Authorization', auth);
+
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe('Error interno del servidor');
+    });
+
+    test('Given no token, When fetching all, Then return 401', async () => {
+      const res = await request(app).get('/v1/notifications');
+
+      expect(res.status).toBe(401);
     });
   });
 
-  // GET
   describe('GET /v1/notifications/:id', () => {
     test('Given valid ID, When fetching, Then return 200 and object', async () => {
-      getNotificationByIdMock.mockResolvedValue({
-        id: 1,
-        title: 'Stock bajo',
-        message: 'Producto casi agotado',
-      });
+      notificationService.getNotificationById.mockResolvedValue({ id: 5, content: 'Hola' });
 
-      await request(app)
-        .get('/v1/notifications/1')
-        .expect(200)
-        .expect(res => {
-          expect(res.body).toHaveProperty('id', 1);
-        });
+      const res = await request(app).get('/v1/notifications/5').set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ id: 5, content: 'Hola' });
     });
 
     test('Given invalid ID, When fetching, Then return 400', async () => {
-      await request(app).get('/v1/notifications/invalid').expect(400);
+      const res = await request(app).get('/v1/notifications/abc').set('Authorization', auth);
+
+      expect(res.status).toBe(400);
     });
 
     test('Given not found, When fetching, Then return 404', async () => {
-      getNotificationByIdMock.mockResolvedValue(null);
+      notificationService.getNotificationById.mockRejectedValue(new AppError('Notificación no encontrada.', 404));
 
-      await request(app)
-        .get('/v1/notifications/99')
-        .expect(404);
+      const res = await request(app).get('/v1/notifications/99').set('Authorization', auth);
+
+      expect(res.status).toBe(404);
     });
   });
 
-  // POST
   describe('POST /v1/notifications', () => {
     test('Given valid data, When creating, Then return 201', async () => {
-      createNotificationMock.mockResolvedValue({
-        id: 1,
-        title: 'Nuevo aviso',
-        message: 'Pedido recibido',
-      });
+      notificationService.addNotification.mockResolvedValue({ id: 10, content: 'Nueva', type_id: 1 });
 
-      await request(app)
-        .post('/v1/notifications')
-        .send({ title: 'Nuevo aviso', message: 'Pedido recibido' })
-        .expect(201)
-        .expect(res => {
-          expect(res.body).toHaveProperty('id');
-        });
+      const res = await request(app).post('/v1/notifications').set('Authorization', auth).send({ content: 'Nueva', type_id: 1 });
+
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBe(10);
     });
 
     test('Given invalid data, When creating, Then return 400', async () => {
-      await request(app)
-        .post('/v1/notifications')
-        .send({})
-        .expect(400);
+      const res = await request(app).post('/v1/notifications').set('Authorization', auth).send({ content: '' });
+
+      expect(res.status).toBe(400);
+      expect(notificationService.addNotification).not.toHaveBeenCalled();
     });
   });
- 
-  // DELETE
+
   describe('DELETE /v1/notifications/:id', () => {
     test('Given valid ID, When deleting, Then return 200', async () => {
-      deleteNotificationMock.mockResolvedValue(true);
+      notificationService.removeNotification.mockResolvedValue({ message: 'Notificación eliminada exitosamente.' });
 
-      await request(app).delete('/v1/notifications/1').expect(200);
+      const res = await request(app).delete('/v1/notifications/1').set('Authorization', auth);
+
+      expect(res.status).toBe(200);
+      expect(notificationService.removeNotification).toHaveBeenCalledWith('1');
     });
 
     test('Given invalid ID, When deleting, Then return 400', async () => {
-      await request(app).delete('/v1/notifications/invalid').expect(400);
+      const res = await request(app).delete('/v1/notifications/abc').set('Authorization', auth);
+
+      expect(res.status).toBe(400);
     });
 
-    test('Given service error, When deleting, Then return 500', async () => {
-      deleteNotificationMock.mockRejectedValue(new Error('DB Error'));
+    test('Given unknown ID, When deleting, Then return 404', async () => {
+      notificationService.removeNotification.mockRejectedValue(new AppError('Notificación no encontrada o ya eliminada.', 404));
 
-      await request(app).delete('/v1/notifications/1').expect(500);
+      const res = await request(app).delete('/v1/notifications/1').set('Authorization', auth);
+
+      expect(res.status).toBe(404);
     });
   });
 });

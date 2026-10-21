@@ -19,7 +19,7 @@ export const ProductOutsProxy = {
   async getById(id) {
     const token = await SecureStore.getItemAsync('token');
 
-    const res = await fetch(`${API_BASE_URL}/v1/product-outs${id}`, {
+    const res = await fetch(`${API_BASE_URL}/v1/product-outs/${id}`, {
       headers: {
         "Authorization": "Bearer " + token
       }

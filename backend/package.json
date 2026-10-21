@@ -1,30 +1,39 @@
 {
   "scripts": {
+    "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "type": "module",
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "express-mysql-session": "^3.0.3",
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.1",
     "mysql2": "^3.15.1",
     "pdfkit": "^0.17.2"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.28.5",
-    "babel-jest": "^30.2.0",
     "cross-env": "^10.1.0",
-    "dotenv": "^17.2.3",
     "jest": "^29.7.0",
-    "morgan": "^1.10.1",
     "nodemon": "^3.1.10",
     "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "testMatch": [
+      "**/__tests__/**/*.unit.js"
+    ],
+    "setupFiles": [
+      "<rootDir>/__tests__/setupEnv.js"
+    ]
   }
 }

@@ -52,7 +52,6 @@ class ReportsService {
             doc.fontSize(11).font('Helvetica')
             doc.moveDown(1);
             const [productsRows] = await reportsModel.postReportInventory();
-            if (!productsRows || !Array.isArray(productsRows)) return [];
 
             const validatedProducts = productsRows.map(dbProduct => new ProductReportVO(dbProduct));
 
@@ -86,7 +85,6 @@ class ReportsService {
             doc.fontSize(11).font('Helvetica')
             doc.moveDown(1);
             const [entriesRows] = await reportsModel.postReportEntries(initialDate, endDate);
-            if (!entriesRows || !Array.isArray(entriesRows)) return [];
 
             const validatedEntries = entriesRows.map(dbEntry => new ProductEntrieReportVO(dbEntry));
 
@@ -121,7 +119,6 @@ class ReportsService {
             doc.fontSize(11).font('Helvetica')
             doc.moveDown(1);
             const [outsRows] = await reportsModel.postReportOuts(initialDate, endDate);
-            if (!outsRows || !Array.isArray(outsRows)) return [];
 
             const validatedOuts = outsRows.map(dbOut => new ProductOutReportVO(dbOut));
 
@@ -191,17 +188,16 @@ class ReportsService {
             worksheet.columns = [
                 { header: 'Nombre', key: 'name', width: 30 },
                 { header: 'Categoria', key: 'category', width: 30 },
-                { header: 'Perecedero', key: 'date', width: 15, style: { numFmt: 'dd/mm/yyyy' } },
-                { header: 'Unidad', key: 'amount', width: 15, style: { numFmt: '"$"#,##0.00' } },
-                { header: 'Stock Actual', key: 'actual', width: 15, style: { numFmt: '"$"#,##0.00' } },
-                { header: 'Stock Min', key: 'min', width: 15, style: { numFmt: '"$"#,##0.00' } },
-                { header: 'Stock Max', key: 'max', width: 15, style: { numFmt: '"$"#,##0.00' } },
+                { header: 'Perecedero', key: 'perishable', width: 15 },
+                { header: 'Unidad', key: 'unit', width: 15 },
+                { header: 'Stock Actual', key: 'actual', width: 15 },
+                { header: 'Stock Min', key: 'min', width: 15 },
+                { header: 'Stock Max', key: 'max', width: 15 },
                 { header: 'Creado', key: 'createdAt', width: 20, style: { numFmt: 'dd/mm/yyyy HH:mm' } },
                 { header: 'Actualizado', key: 'updatedAt', width: 20, style: { numFmt: 'dd/mm/yyyy HH:mm' } }
             ];
 
             const [productsRows] = await reportsModel.postReportInventory();
-            if (!productsRows || !Array.isArray(productsRows)) return [];
 
             const validatedProducts = productsRows.map(dbProduct => new ProductReportVO(dbProduct));
 
@@ -245,7 +241,6 @@ class ReportsService {
             ];
 
             const [entriesRows] = await reportsModel.postReportEntries(initialDate, endDate);
-            if (!entriesRows || !Array.isArray(entriesRows)) return [];
 
             const validatedEntries = entriesRows.map(dbEntry => new ProductEntrieReportVO(dbEntry));
 
@@ -288,7 +283,6 @@ class ReportsService {
             ];
 
             const [outsRows] = await reportsModel.postReportOuts(initialDate, endDate);
-            if (!outsRows || !Array.isArray(outsRows)) return [];
 
             const validatedOuts = outsRows.map(dbOut => new ProductOutReportVO(dbOut));
 

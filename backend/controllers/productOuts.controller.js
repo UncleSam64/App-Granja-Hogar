@@ -122,7 +122,7 @@ export class ProductOutController {
    * }
    */
   async create(req, res) {
-    const result = await productOutService.create(req.body);
+    const result = await productOutService.create({ ...req.body, user_id: req.user.id });
     res.status(201).json(result)
   }
 }

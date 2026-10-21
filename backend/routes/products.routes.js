@@ -39,12 +39,12 @@ router.get("/get/:id", [
 
 router.post("/create", [
     authAuthorizePermissions("edit-catalog"),
-    body("name").isString().notEmpty().trim().escape().toLowerCase().withMessage("Name es requerido y debe ser un texto"),
+    body("name").isString().notEmpty().trim().toLowerCase().withMessage("Name es requerido y debe ser un texto"),
     body("category_id").isNumeric().isInt().notEmpty().withMessage("Category ID es requerido tiene que ser un número"),
     body("unit_id").isNumeric().isInt().notEmpty().withMessage("Unit ID es requerido tiene que ser un número"),
     body("perishable").isBoolean().notEmpty().withMessage("Perishable es requerido true/false"),
-    body("min_stock").isNumeric().isInt().notEmpty().withMessage("Min stock es requerido tiene que ser un número"),
-    body("max_stock").isNumeric().isInt().notEmpty().withMessage("Max stock es requerido tiene que ser un número"),
+    body("min_stock").isNumeric().isInt({ min: 0 }).notEmpty().withMessage("Min stock es requerido tiene que ser un número"),
+    body("max_stock").isNumeric().isInt({ min: 0 }).notEmpty().withMessage("Max stock es requerido tiene que ser un número"),
     validate
 ],
     productsController.createProduct
@@ -66,12 +66,12 @@ router.put(
     [
         authAuthorizePermissions("edit-catalog"),
         param("id").isInt().withMessage("ID debe ser un número entero"),
-        body("name").notEmpty().withMessage("El nombre es requerido").trim().escape().toLowerCase(),
+        body("name").notEmpty().withMessage("El nombre es requerido").trim().toLowerCase(),
         body("category_id").notEmpty().isInt().withMessage("category_id debe ser un número entero"),
         body("unit_id").notEmpty().isInt().withMessage("unit_id debe ser un número entero"),
         body("perishable").notEmpty().isBoolean().withMessage("perishable debe ser un booleano"),
-        body("min_stock").notEmpty().isInt().withMessage("min_stock debe ser un número entero"),
-        body("max_stock").notEmpty().isInt().withMessage("max_stock debe ser un número entero"),
+        body("min_stock").notEmpty().isInt({ min: 0 }).withMessage("min_stock debe ser un número entero"),
+        body("max_stock").notEmpty().isInt({ min: 0 }).withMessage("max_stock debe ser un número entero"),
         validate
     ],
     productsController.UpdateProduct

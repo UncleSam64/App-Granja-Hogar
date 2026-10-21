@@ -34,6 +34,7 @@ export class ProductEntrieReportVO {
     }
 
     getFormattedExpDate() {
-        return format(this.exp_date, "MM-dd-yy HH:mm");
+        // Non-perishable entries have no expiration date.
+        return this.exp_date ? format(this.exp_date, "MM-dd-yy") : "N/A";
     }
 }

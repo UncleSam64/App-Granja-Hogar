@@ -12,91 +12,87 @@ import { ProductVO } from '../../valueObjects/products/product.vo.js';
  * @author Renata Loaiza
  */
 
-const createProductModelMock = jest.fn();
-const deleteProductModelMock = jest.fn();
-const updateProductModelMock = jest.fn();
-const getByIdModelMock = jest.fn();
-const addNotificationMock = jest.fn();
-
 jest.unstable_mockModule('../../models/products.model.js', () => ({
-  getCatalogModel: jest.fn(),
-  getProductQuantityModel: jest.fn(),
-  getInventoryModel: jest.fn(),
-  createProductModel: createProductModelMock,
-  deleteProductModel: deleteProductModelMock,
-  update: updateProductModelMock,
-  getById: getByIdModelMock,
+  productsModel: {
+    getCatalog: jest.fn(),
+    getProductQuantity: jest.fn(),
+    getInventory: jest.fn(),
+    createProduct: jest.fn(),
+    deleteProduct: jest.fn(),
+    update: jest.fn(),
+    getById: jest.fn(),
+    getAvailableProducts: jest.fn(),
+  },
 }));
 
 jest.unstable_mockModule('../../services/notifications.service.js', () => ({
-  notificationService: {
-    addNotification: addNotificationMock
-  }
+  notificationService: { addNotification: jest.fn() },
 }));
 
-const { createProductService, deleteProductService } = await import('../../services/products.service.js');
+const { productsModel } = await import('../../models/products.model.js');
+const { notificationService } = await import('../../services/notifications.service.js');
+const { productsService } = await import('../../services/products.service.js');
 
-afterEach(() => {
+const newProduct = { category_id: 1, unit_id: 1, name: 'test product', perishable: false, min_stock: 10, max_stock: 100, user_id: 3 };
+
+beforeEach(() => {
   jest.clearAllMocks();
+  notificationService.addNotification.mockResolvedValue({ id: 1 });
 });
 
 describe('Product Service', () => {
-  describe(' ', () => {
+  describe('addProduct', () => {
     test('Given valid data When create Then returns success and product', async () => {
       // GIVEN
-      const inputData = [1, 1, 'Test Product', false, 10, 100];
-      createProductModelMock.mockResolvedValue([{ insertId: 1 }]);
+      productsModel.createProduct.mockResolvedValue([{ insertId: 1 }]);
 
       // WHEN
-      const result = await createProductService(...inputData);
+      const result = await productsService.addProduct(newProduct);
 
       // THEN
       expect(result.success).toBe(true);
       expect(result.product).toBeInstanceOf(ProductVO);
-      expect(result.product.name).toBe('Test Product');
-      expect(createProductModelMock).toHaveBeenCalledWith(...inputData);
+      expect(result.product.name).toBe('test product');
+      expect(productsModel.createProduct).toHaveBeenCalledWith(1, 1, 'test product', false, 10, 100);
+      expect(notificationService.addNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: 3, product_id: 1, type_id: 1, permission_id: 4 })
+      );
     });
 
-    test('Given failed insert When create Then returns failure', async () => {
+    test('Given failed insert When create Then throws', async () => {
       // GIVEN
-      const inputData = [1, 1, 'Test Product', false, 10, 100];
-      createProductModelMock.mockResolvedValue([{}]);
+      productsModel.createProduct.mockResolvedValue([{}]);
 
-      // WHEN
-      const result = await createProductService(...inputData);
-
-      // THEN
-      expect(result.success).toBe(false);
-      expect(result.message).toBe('Product could not be created');
+      // WHEN / THEN
+      await expect(productsService.addProduct(newProduct)).rejects.toThrow('El producto no pudo ser creado');
+      expect(notificationService.addNotification).not.toHaveBeenCalled();
     });
   });
 
-  describe('deleteProductService', () => {
+  describe('removeProduct', () => {
     test('Given valid ID When delete Then returns success', async () => {
       // GIVEN
-      const id = 1;
-      deleteProductModelMock.mockResolvedValue([{ affectedRows: 1 }]);
+      productsModel.getById.mockResolvedValue({ id: 1, name: 'arroz' });
+      productsModel.deleteProduct.mockResolvedValue([{ affectedRows: 1 }]);
 
       // WHEN
-      const result = await deleteProductService(id);
+      const result = await productsService.removeProduct(1, 3);
 
       // THEN
-      expect(result.success).toBe(true);
-      expect(result.message).toBe('Product deleted successfully');
-      expect(deleteProductModelMock).toHaveBeenCalledWith(id);
+      expect(result).toEqual({ success: true, message: 'Product deleted successfully' });
+      expect(productsModel.deleteProduct).toHaveBeenCalledWith(1);
+      expect(notificationService.addNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ content: 'Se ha eliminado un producto: arroz', type_id: 2 })
+      );
     });
 
-    test('Given non-existent ID When delete Then returns failure', async () => {
+    test('Given non-existent ID When delete Then throws 404', async () => {
       // GIVEN
-      const id = 999;
-      deleteProductModelMock.mockResolvedValue([{}]);
+      productsModel.getById.mockResolvedValue(undefined);
 
-      // WHEN
-      const result = await deleteProductService(id);
-
-      // THEN
-      expect(result.success).toBe(false);
-      expect(result.message).toBe('Product could not be deleted');
+      // WHEN / THEN
+      await expect(productsService.removeProduct(999, 3)).rejects.toMatchObject({ statusCode: 404 });
+      expect(productsModel.deleteProduct).not.toHaveBeenCalled();
     });
   });
 
@@ -107,35 +103,30 @@ describe('Product Service', () => {
   describe('getInventory', () => {
     test('Given valid request, When getInventory, Then should return inventory list', async () => {
       // GIVEN
-      const mockInventory = [
-        { id: 1, name: 'Product 1', quantity: 10, unit: 'kg' },
-        { id: 2, name: 'Product 2', quantity: 5, unit: 'liters' }
-      ];
-      const { productsService } = await import('../../services/products.service.js');
-      jest.spyOn(productsService, 'getInventory').mockResolvedValue(mockInventory);
+      productsModel.getInventory.mockResolvedValue([
+        { id: 1, name: 'Product 1', actual_stock: 10, unit_id: 1 },
+        { id: 2, name: 'Product 2', actual_stock: 0, unit_id: 2 },
+      ]);
 
       // WHEN
       const result = await productsService.getInventory();
 
       // THEN
-      expect(result).toHaveLength(2);
-      expect(result[0]).toHaveProperty('id', 1);
-      expect(result[0]).toHaveProperty('name', 'Product 1');
-      expect(result[1]).toHaveProperty('id', 2);
-      expect(result[1]).toHaveProperty('name', 'Product 2');
+      expect(result).toEqual([
+        { id: 1, name: 'Product 1', quantity: 10, unit: 1 },
+        { id: 2, name: 'Product 2', quantity: 0, unit: 2 },
+      ]);
     });
 
     test('Given empty inventory, When getInventory, Then should return empty array', async () => {
       // GIVEN
-      const { productsService } = await import('../../services/products.service.js');
-      jest.spyOn(productsService, 'getInventory').mockResolvedValue([]);
+      productsModel.getInventory.mockResolvedValue([]);
 
       // WHEN
       const result = await productsService.getInventory();
 
       // THEN
-      expect(result).toHaveLength(0);
-      expect(Array.isArray(result)).toBe(true);
+      expect(result).toEqual([]);
     });
   });
 
@@ -145,26 +136,42 @@ describe('Product Service', () => {
   describe('getProductQuantity', () => {
     test('Given valid product ID, When getProductQuantity, Then should return product quantity', async () => {
       // GIVEN
-      const mockProduct = { id: 1, name: 'Test Product', quantity: 15, unit: 'kg' };
-      const { productsService } = await import('../../services/products.service.js');
-      jest.spyOn(productsService, 'getProductQuantity').mockResolvedValue(mockProduct);
+      productsModel.getProductQuantity.mockResolvedValue({ name: 'Test Product', actual_stock: 15, unit_id: 1 });
 
       // WHEN
       const result = await productsService.getProductQuantity(1);
 
       // THEN
-      expect(result).toHaveProperty('id', 1);
-      expect(result).toHaveProperty('name', 'Test Product');
-      expect(result).toHaveProperty('quantity', 15);
+      expect(result).toEqual({ name: 'Test Product', quantity: 15, unit: 1 });
+      expect(productsModel.getProductQuantity).toHaveBeenCalledWith(1);
     });
 
-    test('Given non-existent product ID, When getProductQuantity, Then should throw error', async () => {
+    test('Given non-existent product ID, When getProductQuantity, Then should throw 404', async () => {
       // GIVEN
-      const { productsService } = await import('../../services/products.service.js');
-      jest.spyOn(productsService, 'getProductQuantity').mockRejectedValue(new Error('Product not found'));
+      productsModel.getProductQuantity.mockResolvedValue(undefined);
 
       // WHEN/THEN
-      await expect(productsService.getProductQuantity(999)).rejects.toThrow('Product not found');
+      await expect(productsService.getProductQuantity(999)).rejects.toMatchObject({
+        statusCode: 404, message: 'Producto no encontrado',
+      });
+    });
+  });
+
+  describe('catalog and available products', () => {
+    test('Given products, When getCatalog, Then perishable comes from the `perishable` column', async () => {
+      productsModel.getCatalog.mockResolvedValue([[{ id: 1, name: 'leche', perishable: 1, category: 'Alimentos y Aseo', unit: 'L' }]]);
+
+      const result = await productsService.getCatalog();
+
+      expect(result).toEqual([{ id: 1, name: 'leche', perishable: true, category: 'Alimentos y Aseo', unit: 'L' }]);
+    });
+
+    test('Given products in stock, When getAvailableProducts, Then each includes its stock', async () => {
+      productsModel.getAvailableProducts.mockResolvedValue([{ id: 1, name: 'leche', perishable: 1, unit_id: 2, actual_stock: '7.50' }]);
+
+      const result = await productsService.getAvailableProducts();
+
+      expect(result).toEqual([{ id: 1, name: 'leche', perishable: 1, unit_id: 2, actual_stock: 7.5 }]);
     });
   });
 
@@ -172,74 +179,57 @@ describe('Product Service', () => {
    * @author Renata Loaiza
    */
   describe('editProduct', () => {
+    const edit = {
+      category_id: 2, unit_id: 2, name: 'Updated Product', perishable: true, min_stock: 20, max_stock: 200, productId: 1, user_id: 1,
+    };
+
     test('Given valid product data When edit Then returns success and updated product', async () => {
       // GIVEN
-      const existingProduct = { id: 1, name: 'Original Product', category_id: 1, unit_id: 1 };
-      const updatedProduct = { id: 1, name: 'Updated Product', category_id: 2, unit_id: 2, perishable: true, min_stock: 20, max_stock: 200 };
-      
-      getByIdModelMock.mockResolvedValue(existingProduct);
-      updateProductModelMock.mockResolvedValue(updatedProduct);
-      addNotificationMock.mockResolvedValue({ id: 1 });
+      const updatedProduct = { id: 1, name: 'Updated Product', category_id: 2, unit_id: 2, perishable: 1, min_stock: 20, max_stock: 200 };
+      productsModel.getById.mockResolvedValue({ id: 1, name: 'Original Product' });
+      productsModel.update.mockResolvedValue(updatedProduct);
 
-      const { productsService } = await import('../../services/products.service.js');
-      
       // WHEN
-      const result = await productsService.editProduct({
-        category_id: 2,
-        unit_id: 2,
-        name: 'Updated Product',
-        perishable: true,
-        min_stock: 20,
-        max_stock: 200,
-        productId: 1,
-        user_id: 1
-      });
+      const result = await productsService.editProduct(edit);
 
       // THEN
-      expect(result.success).toBe(true);
-      expect(result.message).toBe('Producto editado exitosamente');
-      expect(getByIdModelMock).toHaveBeenCalledWith(1);
-      expect(updateProductModelMock).toHaveBeenCalled();
+      expect(result).toEqual({ success: true, message: 'Producto editado exitosamente', product: updatedProduct });
+      expect(productsModel.update).toHaveBeenCalledWith(1, {
+        category_id: 2, unit_id: 2, name: 'Updated Product', perishable: true, min_stock: 20, max_stock: 200,
+      });
     });
 
-    test('Given non-existent product ID When edit Then throws error', async () => {
+    test('Given actual_stock in the body When edit Then stock is not touched', async () => {
       // GIVEN
-      getByIdModelMock.mockResolvedValue(null);
+      productsModel.getById.mockResolvedValue({ id: 1, name: 'Original Product' });
+      productsModel.update.mockResolvedValue({ id: 1 });
 
-      const { productsService } = await import('../../services/products.service.js');
-      
+      // WHEN
+      await productsService.editProduct({ ...edit, actual_stock: 0, is_active: false });
+
+      // THEN
+      const fields = productsModel.update.mock.calls[0][1];
+      expect(fields).not.toHaveProperty('actual_stock');
+      expect(fields).not.toHaveProperty('is_active');
+    });
+
+    test('Given non-existent product ID When edit Then throws 404', async () => {
+      // GIVEN
+      productsModel.getById.mockResolvedValue(null);
+
       // WHEN/THEN
-      await expect(productsService.editProduct({
-        category_id: 1,
-        unit_id: 1,
-        name: 'Updated Product',
-        perishable: true,
-        min_stock: 20,
-        max_stock: 200,
-        productId: 999,
-        user_id: 1
-      })).rejects.toThrow('Producto no encontrado');
+      await expect(productsService.editProduct({ ...edit, productId: 999 })).rejects.toMatchObject({
+        statusCode: 404, message: 'Producto no encontrado',
+      });
     });
 
     test('Given failed update When edit Then throws error', async () => {
       // GIVEN
-      const existingProduct = { id: 1, name: 'Original Product' };
-      getByIdModelMock.mockResolvedValue(existingProduct);
-      updateProductModelMock.mockResolvedValue(null);
+      productsModel.getById.mockResolvedValue({ id: 1, name: 'Original Product' });
+      productsModel.update.mockResolvedValue(null);
 
-      const { productsService } = await import('../../services/products.service.js');
-      
       // WHEN/THEN
-      await expect(productsService.editProduct({
-        category_id: 1,
-        unit_id: 1,
-        name: 'Updated Product',
-        perishable: true,
-        min_stock: 20,
-        max_stock: 200,
-        productId: 1,
-        user_id: 1
-      })).rejects.toThrow('El producto no pudo ser editado');
+      await expect(productsService.editProduct(edit)).rejects.toThrow('El producto no pudo ser editado');
     });
   });
 });

@@ -31,6 +31,8 @@ class ProductsController {
         this.deleteProduct = catchAsync(this.deleteProduct.bind(this));
         this.UpdateProduct = catchAsync(this.UpdateProduct.bind(this));
         this.getAvailableProducts = catchAsync(this.getAvailableProducts.bind(this));
+        this.getAvailableProductsForEntries = catchAsync(this.getAvailableProductsForEntries.bind(this));
+        this.getProduct = catchAsync(this.getProduct.bind(this));
     }
 
     /**
@@ -80,7 +82,6 @@ class ProductsController {
      */
     async UpdateProduct (req, res) {
         const { id } = req.params;
-        console.log(req.body)
         const result = await productsService.editProduct({...req.body, user_id: req.user.id, productId: id});
         res.json(result);
     }

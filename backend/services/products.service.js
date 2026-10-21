@@ -43,7 +43,7 @@ class ProductsService {
      */
     async getProductQuantity(id) {
         const product = await productsModel.getProductQuantity(id);
-        if (!product) throw new AppError('Product not found');
+        if (!product) throw new AppError('Producto no encontrado', 404);
 
         return new ProductQuantityVO(product);
     }
@@ -59,7 +59,7 @@ class ProductsService {
 
     async getProduct(id) {
         const product = await productsModel.getById(id);
-        if (!product) throw new AppError('Producto no encontrado');
+        if (!product) throw new AppError('Producto no encontrado', 404);
 
         return new ProductVO(product);
     }
@@ -96,7 +96,7 @@ class ProductsService {
 
     async removeProduct(id, user_id) {
         const product = await productsModel.getById(id);
-        if (!product) throw new AppError('Producto no encontrado');
+        if (!product) throw new AppError('Producto no encontrado', 404);
         const [result] = await productsModel.deleteProduct(id);
 
         if (!result || !result.affectedRows) throw new AppError('Product could not be deleted');
@@ -117,9 +117,10 @@ class ProductsService {
     /**
      * @author Renata Loaiza
      */
-    async editProduct({ category_id, unit_id, name, perishable, min_stock, max_stock, actual_stock, is_active, productId, user_id }) {
+    // Stock is not editable here: it only changes through entries and outs, so every unit stays traceable.
+    async editProduct({ category_id, unit_id, name, perishable, min_stock, max_stock, productId, user_id }) {
         const existingProduct = await productsModel.getById(productId);
-        if (!existingProduct) throw new AppError('Producto no encontrado');
+        if (!existingProduct) throw new AppError('Producto no encontrado', 404);
 
         const updatedProduct = await productsModel.update(productId, {
             category_id,
@@ -127,9 +128,7 @@ class ProductsService {
             name,
             perishable,
             min_stock,
-            max_stock,
-            actual_stock,
-            is_active
+            max_stock
         });
 
         if (!updatedProduct) throw new AppError('El producto no pudo ser editado');

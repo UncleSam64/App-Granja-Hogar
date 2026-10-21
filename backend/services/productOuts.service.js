@@ -17,6 +17,7 @@
  */
 
 import { notificationsModel } from "../models/notifications.model.js";
+import { withTransaction } from "../models/index.js";
 import { productOutModel } from "../models/productOuts.model.js";
 import { productsModel } from "../models/products.model.js";
 import { AppError } from "../utils/error.util.js";
@@ -46,7 +47,7 @@ class ProductOutService {
     const records = await productOutModel.getAll();
 
     if (!records || records.length === 0)
-      throw new AppError("No hay registros");
+      throw new AppError("No hay registros", 404);
 
     const data = records.map(record => new ProductOutVO(record));
 
@@ -70,7 +71,7 @@ class ProductOutService {
   async getById(id) {
     const record = await productOutModel.getById(id);
 
-    if (!record) throw new AppError("Registro no encontrado");
+    if (!record) throw new AppError("Registro no encontrado", 404);
 
     const data = new ProductOutVO(record);
 
@@ -80,16 +81,17 @@ class ProductOutService {
   /**
    * Creates a new product out record and updates the product's current stock.
    * 
-   * This method performs three main operations:
-   * 1. Retrieves the product's current stock using `getActualStock()` and validates that the quantity to be deducted does not exceed it.
-   *    If the stock is insufficient, an `AppError` is thrown and the process is aborted.
-   * 2. Inserts a new record into the `product_outs` table to register the outflow.
-   * 3. Updates the product's `actual_stock` value in the `products` table by subtracting the deducted quantity.
+   * Runs in one transaction:
+   * 1. Checks that the product exists and is active.
+   * 2. Subtracts the quantity only if enough stock remains (single conditional UPDATE),
+   *    so two simultaneous outs can never push stock below zero.
+   * 3. Inserts the `product_outs` record and its notification.
+   * If any step fails, nothing is written.
    * 
    * @async
    * @memberof ProductOutService
    * @param {Object} data - The data object containing the new product out information.
-   * @param {number} data.user_id - The ID of the user registering the outflow.
+   * @param {number} data.user_id - The ID of the user registering the outflow (taken from the token, never the body).
    * @param {number} data.product_id - The ID of the product being deducted.
    * @param {number} data.reason_id - The ID representing the reason for the outflow.
    * @param {number} data.department_id - The ID of the department receiving the product.
@@ -97,7 +99,7 @@ class ProductOutService {
    * @param {number} data.quantity - The quantity of product being deducted.
    * @param {string} [data.notes] - Optional notes or comments for the outflow record.
    * 
-   * @throws {AppError} If the stock is insufficient, insertion fails, or stock update fails.
+   * @throws {AppError} 404 if the product doesn't exist or is inactive, 400 if stock is insufficient.
    * 
    * @returns {Promise<{ success: boolean, updatedStock: boolean, insertId: number, message: string }>}
    * Returns a confirmation object containing the operation result, including the insert ID.
@@ -122,42 +124,38 @@ class ProductOutService {
    * // }
    */
   async create(data) {
-    
-    const stockInfo = await productOutModel.getActualStock(data.product_id);
-    const currentStock = stockInfo?.actual_stock ?? 0;
+    const quantity = Number(data.quantity);
 
-    if (currentStock < data.quantity) {
-    throw new AppError(
-      `Stock insuficiente: disponibles ${currentStock}, solicitados ${data.quantity}.`,
-      400
-    );
-  }
-    const result = await productOutModel.create(data);
-    
-    if (!result || !result.insertId)
-      throw new AppError("Error al ingresar la salida");
+    const insertId = await withTransaction(async (conn) => {
+      const product = await productsModel.getById(data.product_id, conn);
+      if (!product || !product.is_active) throw new AppError("Producto no encontrado", 404);
 
-    const updatedStock = await productOutModel.updateProductStock(
-      data.product_id,
-      data.quantity
-    );
+      const updatedStock = await productsModel.decreaseStock(data.product_id, quantity, conn);
+      if (updatedStock.affectedRows === 0) {
+        throw new AppError(
+          `Stock insuficiente: disponibles ${Number(product.actual_stock)}, solicitados ${quantity}.`,
+          400
+        );
+      }
 
-    if (updatedStock.affectedRows === 0)
-      throw new AppError("No se pudo actualizar el stock", 404);
+      const result = await productOutModel.create({ ...data, quantity }, conn);
 
-    await notificationsModel.createNotification({
-      user_id: data.user_id,
-      product_id: data.product_id,
-      product_out_id: result.insertId,
-      content: `Se ha registrado una nueva salida de ${data.quantity}${getUnitNameById(data.unit_id)} para el producto ${stockInfo.name}.`,
-      type_id: 5,
-      permission_id: 3
+      await notificationsModel.createNotification({
+        user_id: data.user_id,
+        product_id: data.product_id,
+        product_out_id: result.insertId,
+        content: `Se ha registrado una nueva salida de ${quantity}${getUnitNameById(data.unit_id)} para el producto ${product.name}.`,
+        type_id: 5,
+        permission_id: 3
+      }, conn);
+
+      return result.insertId;
     });
 
     return {
       success: true,
       updatedStock: true,
-      insertId: result.insertId,
+      insertId,
       message: "Salida registrada correctamente"
     };
   }

@@ -6,14 +6,13 @@
 import db from "../models/index.js";
 
 class ProductEntriesModel {
-  async create(entry) {
+  async create(entry, conn = db) {
   /**
    *  Crea una nueva entrada de producto en la base de datos. 
    * @param {*} entry 
    * @returns result.insertId - ID de la nueva entrada creada.
    */
-    console.log(entry)
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `INSERT INTO product_entries 
       (product_id, user_id, unit_id, is_donation, quantity, cost, exp_date)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,

@@ -21,7 +21,8 @@ class UsersModel {
    * @author Jared Alejandro Marquez Muñoz Grado
    */
   async loginModel(username) {
-    const sql = `SELECT * FROM users WHERE username = ?`
+    // Deleted users are soft-deleted (is_active = FALSE) and must not be able to log in.
+    const sql = `SELECT * FROM users WHERE username = ? AND is_active = TRUE`
     return await db.query(sql, [username]);
   }
 
@@ -55,24 +56,24 @@ class UsersModel {
   /**
    * @author Renata Loaiza
    */
-  async create({ name, lastName, username, passwordHash }) {
+  async create({ name, lastName, username, passwordHash }, conn = db) {
     const sql = `
       INSERT INTO users (name, username, last_name, password_hash)
       VALUES (?, ?, ?, ?)
     `;
     const params = [name, username, lastName, passwordHash];
-    const [result] = await db.query(sql, params);
+    const [result] = await conn.query(sql, params);
     return result;
   }
 
-  async addPermissionsToUser(userId, permissions) {
+  async addPermissionsToUser(userId, permissions, conn = db) {
     const sql = `
       INSERT INTO user_permissions (user_id, permission_id)
       VALUES (?, (SELECT id FROM permissions WHERE permission = ?))
     `;
 
     for (const permission of permissions) {
-      await db.query(sql, [userId, permission]);
+      await conn.query(sql, [userId, permission]);
     }
   }
 
@@ -100,23 +101,23 @@ class UsersModel {
   /**
    * @author Yahir Alfredo Tapia Sifuentes
    */
-  async updateUser({ id, name, last_name }) {
+  async updateUser({ id, name, last_name }, conn = db) {
     const sql = `
     UPDATE users 
     SET name = ?, last_name = ?
     WHERE id = ? AND is_active = TRUE
     `;
     const params = [name, last_name, id];
-    const [result] = await db.query(sql, params);
+    const [result] = await conn.query(sql, params);
     return result;
   }
 
   /**
    * @author Yahir Alfredo Tapia Sifuentes
    */
-  async updateUserPermissions(userId, permissions) {
+  async updateUserPermissions(userId, permissions, conn = db) {
     const deleteSql = `DELETE FROM user_permissions WHERE user_id = ?`;
-    await db.query(deleteSql, [userId]);
+    await conn.query(deleteSql, [userId]);
 
     const insertSql = `
       INSERT INTO user_permissions (user_id, permission_id)
@@ -124,7 +125,7 @@ class UsersModel {
     `;
 
     for (const permission of permissions) {
-      await db.query(insertSql, [userId, permission]);
+      await conn.query(insertSql, [userId, permission]);
     }
   }
 
